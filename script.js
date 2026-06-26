@@ -6,6 +6,7 @@ let selectedSectionId = 1;
 // Get the HTML elements we will update.
 const vitalityValue = document.getElementById('vitality-value');
 const trashValue = document.getElementById('trash-value');
+const fishValue = document.getElementById('fish-value');
 const environmentStatus = document.getElementById('environment-status');
 const bucketButton = document.getElementById('bucket-button');
 const world = document.getElementById('world');
@@ -41,6 +42,10 @@ function buildWorld() {
             <div class="section-trash-layer"></div>
             <span class="section-plants">🌿</span>
             <span class="section-fish">🐟</span>
+            <div class="section-progress">
+                <div class="section-progress-fill"></div>
+            </div>
+            <div class="section-progress-text">0% Cleared</div>
         `;
 
         sectionElement.addEventListener('click', () => {
@@ -52,7 +57,8 @@ function buildWorld() {
         return {
             ...config,
             element: sectionElement,
-            trashItems: []
+            trashItems: [],
+            fishCount: 0
         };
     });
 
@@ -64,13 +70,35 @@ function buildWorld() {
 function updateUI() {
     vitalityValue.textContent = vitality;
     trashValue.textContent = trashCollected;
+    fishValue.textContent = lakeSections.reduce((sum, section) => sum + section.fishCount, 0);
     updateEnvironment();
 }
 
 // Add one vitality point when the bucket is clicked.
+function showHeartBurst() {
+    const heart = document.createElement('span');
+    heart.className = 'heart-burst';
+    heart.textContent = '💕';
+
+    const driftX = (Math.random() - 0.5) * 48;
+    const driftY = -44 - Math.random() * 18;
+    heart.style.setProperty('--drift-x', `${driftX}px`);
+    heart.style.setProperty('--drift-y', `${driftY}px`);
+
+    heart.style.left = `${bucketButton.offsetLeft + bucketButton.offsetWidth / 2}px`;
+    heart.style.top = `${bucketButton.offsetTop + bucketButton.offsetHeight / 2}px`;
+
+    bucketButton.parentElement.appendChild(heart);
+
+    setTimeout(() => {
+        heart.remove();
+    }, 700);
+}
+
 function earnVitality() {
     vitality += 1;
     updateUI();
+    showHeartBurst();
 
     bucketButton.classList.remove('active');
     void bucketButton.offsetWidth;
@@ -104,6 +132,8 @@ function updateAllSections() {
         section.element.classList.toggle('is-selected', isUnlocked && isSelected);
         section.element.classList.toggle('section-dirty', isUnlocked && !isClean);
         section.element.classList.toggle('section-clean', isUnlocked && isClean);
+        updateFishDisplay(section);
+        updateSectionProgress(section);
     });
 
     updateUI();
@@ -219,6 +249,92 @@ function updateEnvironment() {
     }
 }
 
+function setEnvironmentMessage(message, delay = 2200) {
+    environmentStatus.textContent = message;
+    clearTimeout(environmentStatus.resetTimeout);
+    environmentStatus.resetTimeout = setTimeout(updateEnvironment, delay);
+}
+
+function updateFishDisplay(section) {
+    const fishIndicator = section.element.querySelector('.section-fish');
+    if (!fishIndicator) {
+        return;
+    }
+
+    if (section.fishCount > 0) {
+        fishIndicator.textContent = `🐟 x${section.fishCount}`;
+    } else {
+        fishIndicator.textContent = '🐟';
+    }
+}
+
+function updateSectionProgress(section) {
+    const progressFill = section.element.querySelector('.section-progress-fill');
+    const progressText = section.element.querySelector('.section-progress-text');
+
+    if (!progressFill || !progressText) {
+        return;
+    }
+
+    const progress = Math.min(100, Math.max(0, section.cleanliness));
+    progressFill.style.width = `${progress}%`;
+    progressText.textContent = `${progress}% Cleared`;
+
+    if (progress >= 100) {
+        progressText.textContent = 'Completed!';
+    }
+}
+
+function buyFish(sectionId) {
+    const section = lakeSections.find((item) => item.id === sectionId);
+    const cost = 15;
+
+    if (!section || !section.unlocked || !section.cleaned) {
+        setEnvironmentMessage('Clean this section first to add fish to the pond.');
+        return;
+    }
+
+    if (vitality < cost) {
+        setEnvironmentMessage('You need more vitality points to buy fish.');
+        return;
+    }
+
+    vitality -= cost;
+    section.fishCount += 1;
+    updateFishDisplay(section);
+    updateUI();
+    setEnvironmentMessage('A new fish is swimming in your pond!');
+}
+
+function animateFishHeart(section) {
+    const fishIndicator = section.element.querySelector('.section-fish');
+    if (!fishIndicator || section.fishCount === 0) {
+        return;
+    }
+
+    fishIndicator.classList.remove('heart-pulse');
+    void fishIndicator.offsetWidth;
+    fishIndicator.classList.add('heart-pulse');
+}
+
+function startFishEarnings() {
+    setInterval(() => {
+        let totalFish = 0;
+
+        lakeSections.forEach((section) => {
+            if (section.fishCount > 0) {
+                totalFish += section.fishCount;
+                animateFishHeart(section);
+            }
+        });
+
+        if (totalFish > 0) {
+            vitality += totalFish;
+            updateUI();
+        }
+    }, 6000);
+}
+
 // Placeholder function for other upgrades.
 function buyUpgrade(upgradeName = 'upgrade') {
     console.log(`${upgradeName} clicked. More features will be added soon.`);
@@ -235,11 +351,14 @@ function resetGame() {
         section.cleaned = false;
         section.cleanliness = 0;
         section.trashItems = [];
+        section.fishCount = 0;
 
         const trashLayer = section.element.querySelector('.section-trash-layer');
         if (trashLayer) {
             trashLayer.innerHTML = '';
         }
+
+        updateFishDisplay(section);
     });
 
     zoomOut();
@@ -256,6 +375,8 @@ function setupEvents() {
 
             if (upgradeName === 'Clean Water') {
                 cleanSection(selectedSectionId);
+            } else if (upgradeName === 'Buy Fish') {
+                buyFish(selectedSectionId);
             } else {
                 buyUpgrade(upgradeName);
             }
@@ -268,4 +389,5 @@ function setupEvents() {
 // Start the game.
 buildWorld();
 setupEvents();
+startFishEarnings();
 updateUI();
