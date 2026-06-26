@@ -171,17 +171,29 @@ body {
     font-weight: bold;
 }
 
-.section-trash,
+.section-trash-layer,
 .section-plants,
 .section-fish {
     position: absolute;
     transition: opacity 0.3s ease;
 }
 
-.section-trash {
-    top: 14px;
-    left: 14px;
+.section-trash-layer {
+    inset: 0;
+    pointer-events: none;
+}
+
+.section-trash-item {
+    position: absolute;
     font-size: 1.4rem;
+    cursor: pointer;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.section-trash-item:hover {
+    transform: translate(-50%, -50%) scale(1.08);
 }
 
 .section-plants {

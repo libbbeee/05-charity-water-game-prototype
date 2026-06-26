@@ -22,6 +22,7 @@ const sectionConfigs = [
     { id: 6, row: 2, col: 3, neighbors: [3, 5], unlocked: false, cleaned: false, cleanliness: 0 }
 ];
 
+const trashIcons = ['🗑️', '🧴', '🧷', '🧼', '🥫'];
 let lakeSections = [];
 
 // Create the lake section elements inside the world container.
@@ -37,7 +38,7 @@ function buildWorld() {
 
         sectionElement.innerHTML = `
             <span class="section-label">Section ${config.id}</span>
-            <span class="section-trash">🗑️</span>
+            <div class="section-trash-layer"></div>
             <span class="section-plants">🌿</span>
             <span class="section-fish">🐟</span>
         `;
@@ -50,7 +51,8 @@ function buildWorld() {
 
         return {
             ...config,
-            element: sectionElement
+            element: sectionElement,
+            trashItems: []
         };
     });
 
@@ -107,6 +109,45 @@ function updateAllSections() {
     updateUI();
 }
 
+// Add random trash pieces to a cleaned section.
+function spawnTrashItems(section) {
+    const trashLayer = section.element.querySelector('.section-trash-layer');
+
+    if (!trashLayer) {
+        return;
+    }
+
+    // Clear old trash before placing new pieces.
+    trashLayer.innerHTML = '';
+    section.trashItems = [];
+
+    const numberOfItems = Math.floor(Math.random() * 4) + 1;
+
+    for (let i = 0; i < numberOfItems; i += 1) {
+        const trashItem = document.createElement('div');
+        trashItem.className = 'section-trash-item';
+        trashItem.textContent = trashIcons[Math.floor(Math.random() * trashIcons.length)];
+        trashItem.style.left = `${15 + Math.random() * 70}%`;
+        trashItem.style.top = `${20 + Math.random() * 60}%`;
+
+        trashItem.addEventListener('click', (event) => {
+            event.stopPropagation();
+            removeTrashItem(section, trashItem);
+        });
+
+        trashLayer.appendChild(trashItem);
+        section.trashItems.push(trashItem);
+    }
+}
+
+// Remove a trash item when it is clicked.
+function removeTrashItem(section, trashItem) {
+    trashItem.remove();
+    section.trashItems = section.trashItems.filter((item) => item !== trashItem);
+    trashCollected += 1;
+    updateUI();
+}
+
 // Clean the selected section using vitality points.
 function cleanSection(sectionId) {
     const section = lakeSections.find((item) => item.id === sectionId);
@@ -130,6 +171,7 @@ function cleanSection(sectionId) {
 
     if (section.cleanliness >= 100) {
         section.cleaned = true;
+        spawnTrashItems(section);
         trashCollected += 1;
         unlockNextSection(section.id);
     }
@@ -192,6 +234,12 @@ function resetGame() {
         section.unlocked = section.id === 1;
         section.cleaned = false;
         section.cleanliness = 0;
+        section.trashItems = [];
+
+        const trashLayer = section.element.querySelector('.section-trash-layer');
+        if (trashLayer) {
+            trashLayer.innerHTML = '';
+        }
     });
 
     zoomOut();
